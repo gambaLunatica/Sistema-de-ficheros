@@ -67,7 +67,10 @@ int initSB(unsigned int nbloques, unsigned int ninodos) {
     return EXITO;
 }
 
-
+/**
+ * @return: EXITO (0) o FALLO (-1)
+ * Inicializa el mapa de bits (MB) marcando como ocupados los bloques de metadatos (SB, MB y AI).
+ */
 int initMB(){
     //1. Leemos el superbloque
     struct superbloque SB;
@@ -122,6 +125,10 @@ int initMB(){
 
 }
 
+/**
+ * @return: EXITO (0) o FALLO (-1)
+ * Inicializa el array de inodos (AI) marcando todos los inodos como libres y enlazándolos entre sí.
+ */
 int initAI() {
     struct superbloque SB;
     if(bread(posSB, &SB) == FALLO){

@@ -4,7 +4,7 @@
  * de bloques, rellenándolos con ceros (formateo de bajo nivel).
  */
 
-#include "bloques.h"
+#include "ficheros_basico.h"
 
 /**
  * main: Función principal del formateador.
@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
     int nbloques = atoi(argv[2]); // Convertimos el string a entero
 
     // 2. Montar el dispositivo virtual
-    // Llama a: bmount() de bloques.c
+    // Llamamos a bmount()
     if (bmount(nombre_dispositivo) == FALLO) {
         return FALLO;
     }
@@ -45,8 +45,27 @@ int main(int argc, char **argv) {
         }
     }
 
-    // 5. Desmontar el dispositivo virtual
-    // Llama a: bumount() de bloques.c
+    int ninodos = nbloques / 4; // Heurística: 1 inodo cada 4 bloques
+
+    // 5. Inicializar el superbloque (SB)
+    if (initSB(nbloques, ninodos) == FALLO) {
+        bumount();
+        return FALLO;
+    }
+
+    // 6. Inicializar el mapa de bits (MB)
+    if (initMB() == FALLO) {
+        bumount();
+        return FALLO;
+    }
+
+    // 7. Inicializar el array de inodos (AI)
+    if (initAI() == FALLO) {
+        bumount();
+        return FALLO;
+    }
+
+    // 8. Desmontar el dispositivo virtual
     if (bumount() == FALLO) {
         return FALLO;
     }
@@ -55,3 +74,4 @@ int main(int argc, char **argv) {
     
     return EXITO;
 }
+
