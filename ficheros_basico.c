@@ -155,3 +155,83 @@ int initAI() {
     }
     return EXITO;
 }
+
+/**
+ * @param nbloque: Número de bloque a modificar
+ * @param bit: Valor del bit a escribir (0 o 1)
+ * @return: EXITO (0) o FALLO (-1)
+ * Escribe un bit en el mapa de bits (MB) para marcar un bloque como libre u ocupado.
+ */
+int escribir_bit(unsigned int nbloque, unsigned int bit) {
+
+
+    struct superbloque SB;
+    if (bread(posSB, &SB) == FALLO) {
+        perror("Error leyendo SB ");
+        return FALLO;
+    }
+
+    unsigned int posbyte = nbloque / 8;
+    unsigned int posbit = nbloque % 8;
+    unsigned int numbloqueMB = posbyte / BLOCKSIZE;
+    unsigned int nbloqueabs = SB.posPrimerBloqueMB + numbloqueMB;
+    unsigned char bufferMB[BLOCKSIZE];
+    memset(bufferMB, '\0', BLOCKSIZE);
+
+    if (bread(nbloqueabs, &bufferMB) == FALLO) {
+        fprintf(stderr, "Error en la lectura del bloque \n");
+        return FALLO;
+    }
+
+    posbyte = posbyte % BLOCKSIZE;
+    unsigned char mask = 128;
+    mask >>= posbit;
+
+    //Modificamos el bit
+    if (bit == 1) {
+        bufferMB[posbyte] |= mask; //Ponemos a 1
+    } else {
+        bufferMB[posbyte] &= ~mask; //Ponemos a 0
+    }
+    
+    //Escribimos el bloque modificado
+    if (bwrite(nbloqueabs, &bufferMB) == FALLO) {
+        fprintf(stderr, "Error en la escritura del bit en el bloque\n");
+        return FALLO;
+    }
+    return EXITO;
+}
+
+/**
+ * @param nbloque: Número de bloque a leer
+ * @return: Valor del bit leído (0 o 1) o FALLO (-1) en caso de error
+ * Lee un bit del mapa de bits (MB) para verificar si un bloque está libre u ocupado.
+ */
+char leer_bit(unsigned int nbloque) {
+
+    struct superbloque SB;
+    if (bread(posSB, &SB) == FALLO) {
+        fprintf(stderr, "Error en la lectura del superbloque \n");
+        return FALLO;
+    }
+
+    unsigned int posbyte = nbloque / 8;
+    unsigned int posbit = nbloque % 8;
+    unsigned int numbloqueMB = posbyte / BLOCKSIZE;
+    unsigned int nbloqueabs = SB.posPrimerBloqueMB + numbloqueMB;
+    unsigned char bufferMB[BLOCKSIZE];
+
+    if (bread(nbloqueabs, &bufferMB) == FALLO) {
+        fprintf(stderr, "Error al leer el bloque\n");
+        return FALLO;
+    }
+
+    posbyte = posbyte % BLOCKSIZE;
+    unsigned char mask = 128;
+    mask >>= posbit;
+    mask &= bufferMB[posbyte]; //Extraemos el bit
+    mask >>= (7 - posbit); //Lo desplazamos a la posición 0 para devolverlo como 0 o 1
+
+    return mask;
+}
+
