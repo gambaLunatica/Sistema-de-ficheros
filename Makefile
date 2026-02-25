@@ -1,13 +1,13 @@
 CC=gcc
 CFLAGS=-Wall -Wextra -std=gnu17 -g
 
-SOURCES=mi_mkfs.c bloques.c
+SOURCES=mi_mkfs.c bloques.c leer_sf.c
 
-LIBRARIES=bloques.o #ficheros_basico.o ficheros.o directorios.o semaforo_mutex_posix.o 
+LIBRARIES=bloques.o ficheros_basico.o 
 
-INCLUDES=bloques.h #ficheros_basico.h ficheros.h directorios.h semaforo_mutex_posix.h simulacion.h 
+INCLUDES=bloques.h ficheros_basico.h 
 
-PROGRAMS=mi_mkfs #leer_sf escribir leer truncar permitir mi_mkdir mi_chmod mi_ls mi_link mi_escribir mi_cat mi_stat mi_rm  simulacion verificacion 
+PROGRAMS=mi_mkfs leer_sf
 
 OBJS=$(SOURCES:.c=.o) 
 

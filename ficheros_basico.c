@@ -79,12 +79,12 @@ int initMB(){
         return FALLO;
     }
 
-    int metadatos = SB.posPrimerBloqueDatos; //Los datos emoiezan despues de los metadatos
-    int bitsRes = SB.posPrimerBloqueDatos;
+    unsigned int metadatos = SB.posPrimerBloqueDatos; //Los datos emoiezan despues de los metadatos
+    unsigned int bitsRes = SB.posPrimerBloqueDatos;
     char bufferMB[BLOCKSIZE];
 
     //2. Recorremos los bloques del MB 
-    for(int i = SB.posPrimerBloqueMB; i <= SB.posUltimoBloqueMB; i++){
+    for(unsigned int i = SB.posPrimerBloqueMB; i <= SB.posUltimoBloqueMB; i++){
         memset(bufferMB, 0, BLOCKSIZE);//Rellenamos el buffer con 0s
 
         //3. LLenamos los bloques con 1s
@@ -136,8 +136,8 @@ int initAI() {
         return FALLO;
     }
     struct inodo inodos[BLOCKSIZE / INODOSIZE];
-    int nInodos = SB.posPrimerInodoLibre; // Empezamos a contar los inodos libres desde el primer inodo libre
-    for (int i = SB.posPrimerBloqueAI; i <= SB.posUltimoBloqueAI; i++) {
+    unsigned nInodos = SB.posPrimerInodoLibre; // Empezamos a contar los inodos libres desde el primer inodo libre
+    for (unsigned i = SB.posPrimerBloqueAI; i <= SB.posUltimoBloqueAI; i++) {
         for (int j = 0; j < BLOCKSIZE / INODOSIZE; j++) {
             inodos[j].tipo = 'l';
             if (nInodos < SB.totInodos - 1) { // Si aún hay inodos libres, asignamos el siguiente inodo libre al puntero directo
