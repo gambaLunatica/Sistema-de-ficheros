@@ -70,6 +70,8 @@ int main(int argc, char **argv) {
         return FALLO;
     }
 
+    reservar_inodo('d', 7); // Reservamos el inodo 0 para el directorio raíz
+
     printf(GREEN "Dispositivo virtual '%s' creado correctamente con %d bloques.\n" RESET, nombre_dispositivo, nbloques);
     
     return EXITO;

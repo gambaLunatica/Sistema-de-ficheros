@@ -37,12 +37,11 @@ int main(int argc, char **argv) {
     printf("\nsizeof struct superbloque: %lu\n", sizeof(struct superbloque));
     printf("sizeof struct inodo: %lu\n", sizeof(struct inodo));
 
-    printf("\nRECORRIDO LISTA ENLAZADA DE INODOS LIBRES\n");
 
     unsigned int ninodo = SB.posPrimerInodoLibre;
     struct inodo inodos[BLOCKSIZE / INODOSIZE];
 
-    while (ninodo != UINT_MAX) {
+    /**while (ninodo != UINT_MAX) {
 
         printf("%u ", ninodo);
 
@@ -59,7 +58,7 @@ int main(int argc, char **argv) {
         ninodo = inodos[i].punterosDirectos[0];
     }
 
-    printf("\n");
+    printf("\n");*/
 
     bumount();
 
