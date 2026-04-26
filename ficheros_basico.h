@@ -1,3 +1,9 @@
+/**
+ * @author Juana Luna
+ * @author Paola Chacín
+ * @author Yassin EL Gharsa
+ */
+
 #include "bloques.h"
 #include <time.h>
 #include <limits.h>
@@ -14,18 +20,18 @@
 #define INDIRECTOS2   (NPUNTEROS * NPUNTEROS * NPUNTEROS + INDIRECTOS1) // 16.843.020 
 
 struct superbloque {
-   unsigned int posPrimerBloqueMB;          // Posición absoluta del primer bloque del mapa de bits
-   unsigned int posUltimoBloqueMB;          // Posición absoluta del último bloque del mapa de bits
-   unsigned int posPrimerBloqueAI;            // Posición absoluta del primer bloque del array de inodos
-   unsigned int posUltimoBloqueAI;            // Posición absoluta del último bloque del array de inodos
-   unsigned int posPrimerBloqueDatos;     // Posición absoluta del primer bloque de datos
-   unsigned int posUltimoBloqueDatos;     // Posición absoluta del último bloque de datos
-   unsigned int posInodoRaiz;                     // Posición del inodo del directorio raíz (relativa al AI)
-   unsigned int posPrimerInodoLibre;        // Posición del primer inodo libre (relativa al AI)
-   unsigned int cantBloquesLibres;            // Cantidad de bloques libres (en todo el disco)
-   unsigned int cantInodosLibres;              // Cantidad de inodos libres (en el AI)
-   unsigned int totBloques;                          // Cantidad total de bloques del disco
-   unsigned int totInodos;                            // Cantidad total de inodos (heurística)
+   unsigned int posPrimerBloqueMB;         // Posición absoluta del primer bloque del mapa de bits
+   unsigned int posUltimoBloqueMB;         // Posición absoluta del último bloque del mapa de bits
+   unsigned int posPrimerBloqueAI;         // Posición absoluta del primer bloque del array de inodos
+   unsigned int posUltimoBloqueAI;         // Posición absoluta del último bloque del array de inodos
+   unsigned int posPrimerBloqueDatos;      // Posición absoluta del primer bloque de datos
+   unsigned int posUltimoBloqueDatos;      // Posición absoluta del último bloque de datos
+   unsigned int posInodoRaiz;              // Posición del inodo del directorio raíz (relativa al AI)
+   unsigned int posPrimerInodoLibre;       // Posición del primer inodo libre (relativa al AI)
+   unsigned int cantBloquesLibres;         // Cantidad de bloques libres (en todo el disco)
+   unsigned int cantInodosLibres;          // Cantidad de inodos libres (en el AI)
+   unsigned int totBloques;                // Cantidad total de bloques del disco
+   unsigned int totInodos;                 // Cantidad total de inodos (heurística)
    char padding[BLOCKSIZE - 12 * sizeof(unsigned int)]; // Relleno para ocupar el bloque completo
 };
 
@@ -45,7 +51,7 @@ struct inodo {     // comprobar que ocupa 128 bytes haciendo un sizeof(inodo)!!!
    time_t atime; // Fecha y hora del último acceso a datos
    time_t mtime; // Fecha y hora de la última modificación de datos
    time_t ctime; // Fecha y hora de la última modificación del inodo
-
+   time_t btime; // Fecha y hora de creación del inodo (birth)
 
    /* comprobar que el tamaño del tipo time_t para vuestra plataforma/compilador es 8:
    printf ("sizeof time_t is: %ld\n", sizeof(time_t)); */
@@ -81,6 +87,18 @@ int leer_inodo(unsigned int ninodo, struct inodo *inodo);
 int escribir_inodo(unsigned int ninodo, struct inodo *inodo);
 int reservar_inodo(unsigned char tipo, unsigned char permisos);
 
-int traducir_bloque_inodo(unsigned int ninodo,
-                          unsigned int nblogico,
-                          unsigned char reservar);
+int liberar_bloques_inodo(unsigned int primerBL, struct inodo *inodo);
+int liberar_indirectos_recursivo(
+    unsigned int *nBL,
+    unsigned int ptr,
+    unsigned int ultimoBL,
+    struct inodo *inodo,
+    int nivel,
+    int nivel_punteros,
+    unsigned int *bloquesLiberados
+);
+
+int traducir_bloque_inodo(unsigned int ninodo, unsigned int nblogico, unsigned char reservar);
+
+int liberar_inodo(unsigned int ninodo);
+int mi_truncar_f(unsigned int ninodo, unsigned int nbytes);

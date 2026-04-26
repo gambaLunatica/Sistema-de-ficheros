@@ -1,3 +1,4 @@
+
 #include "ficheros_basico.h"
 
 int main(int argc, char **argv) {
@@ -37,36 +38,18 @@ int main(int argc, char **argv) {
     printf("\nsizeof struct superbloque: %lu\n", sizeof(struct superbloque));
     printf("sizeof struct inodo: %lu\n", sizeof(struct inodo));
 
-
-    //struct inodo inodos[BLOCKSIZE / INODOSIZE];
-
-    /**while (ninodo != UINT_MAX) {
-
-        printf("%u ", ninodo);
-
-        unsigned int bloque = SB.posPrimerBloqueAI +
-                              (ninodo / (BLOCKSIZE / INODOSIZE));
-        
-
-        if (bread(bloque, inodos) == FALLO) {
-            perror("Error leyendo bloque de inodos");
-            break;
-        }
-
-        unsigned int i = ninodo % (BLOCKSIZE / INODOSIZE);
-        ninodo = inodos[i].punterosDirectos[0];
-    }
-
-    printf("\n");*/
-
-    // Reservar bloque
+    /* --- SECCIÓN COMENTADA: PRUEBAS DE BLOQUES --- 
+       (Comentamos esto porque reservar_bloque() modifica el Mapa de Bits)
+    
     int bloque_reservado = reservar_bloque();
     bread(posSB,&SB);
     printf("\nReservado el bloque %d\nBloques libres: %d\n", bloque_reservado, SB.cantBloquesLibres);
-    // Liberar bloque
+    
     liberar_bloque(bloque_reservado);
     bread(posSB,&SB);
     printf("Liberado el bloque %d\nBloques libres: %d\n\n", bloque_reservado, SB.cantBloquesLibres);
+    ----------------------------------------------- */
+
     printf("bits de las zonas del dispositivo\n");
     printf("bit leido en posSB (bloque n.%d): %d\n", posSB, leer_bit(posSB));
     printf("bit leido en posPrimerBloqueMB (bloque n.%d): %d\n", SB.posPrimerBloqueMB, leer_bit(SB.posPrimerBloqueMB));
@@ -104,6 +87,9 @@ int main(int argc, char **argv) {
     printf("tamaño en bytes lógicos: %d\n", inodo.tamEnBytesLog);
     printf("NumBloquesOcupados: %d\n", inodo.numBloquesOcupados);
 
+    /* --- SECCIÓN COMENTADA: PRUEBAS DE INODOS Y TRADUCCIÓN --- 
+       (IMPORTANTE: Esto es lo que rompe el test porque gasta el inodo 1)
+    
     printf("\nFunciones de traducciòn de bloques inodos\n ");
     bread(posSB,&SB);
     printf("\nposPrimerInodoLibre: %d\n",SB.posPrimerInodoLibre);
@@ -141,6 +127,7 @@ int main(int argc, char **argv) {
     printf("numBloquesOcupados: %d\n", inodo.numBloquesOcupados);
     bread(posSB,&SB);
     printf("posPrimerInodoLibre (después de la reserva): %d\n\n",SB.posPrimerInodoLibre);
+    ---------------------------------------------------------- */
 
     bumount();
 
