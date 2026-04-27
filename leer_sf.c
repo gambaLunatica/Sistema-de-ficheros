@@ -1,4 +1,9 @@
 
+/**
+ * @author Juana Luna
+ * @author Paola Chacín
+ * @author Yassin EL Gharsa
+ */
 
 #include "directorios.h"
 

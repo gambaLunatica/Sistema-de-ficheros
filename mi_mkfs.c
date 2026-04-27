@@ -1,4 +1,9 @@
 /**
+ * 
+ * @author Juana Luna
+ * @author Paola Chacín
+ * @author Yassin EL Gharsa
+ *
  * Programa: mi_mkfs.c
  * Inicializa un dispositivo virtual (fichero) con un número determinado 
  * de bloques, rellenándolos con ceros (formateo de bajo nivel).
