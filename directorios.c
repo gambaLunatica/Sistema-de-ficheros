@@ -73,6 +73,7 @@ int buscar_entrada(const char *camino_parcial, unsigned int *p_inodo_dir, unsign
     char inicial[sizeof(entrada.nombre)];
     char final[strlen(camino_parcial)];
     char tipo;
+     int encontrada = 0; 
 
     int cant_entradas_inodo;
     int num_entrada_inodo = 0;
@@ -125,6 +126,7 @@ int buscar_entrada(const char *camino_parcial, unsigned int *p_inodo_dir, unsign
         // Si coincide el nombre, encontrada
         if (strcmp(inicial, entrada.nombre) == 0)
         {
+            encontrada = 1;
             break;
         }
 
@@ -132,7 +134,7 @@ int buscar_entrada(const char *camino_parcial, unsigned int *p_inodo_dir, unsign
     }
 
     // Si no existe la entrada
-    if (num_entrada_inodo == cant_entradas_inodo)
+    if (!encontrada)
     {
 
         // Si solo queríamos consultar -> error
@@ -179,15 +181,20 @@ int buscar_entrada(const char *camino_parcial, unsigned int *p_inodo_dir, unsign
         // escribimos la entrada al final del directorio
         if (mi_write_f(*p_inodo_dir, &entrada, num_entrada_inodo * sizeof(struct entrada), sizeof(struct entrada)) == FALLO)
         {
+            // si falla, liberamos el inodo que acabamos de crear
+            liberar_inodo(entrada.ninodo);
             return FALLO;
         }
+
+        // la nueva entrada está en la última posición
+        num_entrada_inodo = cant_entradas_inodo;
     }
 
     // si ya no queda más ruta
     if (strcmp(final, "") == 0 || strcmp(final, "/") == 0)
     {
         // si estamos creando y ya existía devuelve error
-        if (num_entrada_inodo < cant_entradas_inodo && reservar == 1)
+        if (encontrada && reservar == 1)
         {
             return ERROR_ENTRADA_YA_EXISTENTE;
         }
@@ -312,7 +319,15 @@ int mi_dir(const char *camino, char *buffer)
         {
             return FALLO;
         }
-        if (inodo.tipo == 'd')
+        
+        // Leer inodo de la entrada
+        struct inodo inodo_entrada;
+        if (leer_inodo(entrada.ninodo, &inodo_entrada) == FALLO)
+        {
+            return FALLO;
+        }
+        
+        if (inodo_entrada.tipo == 'd')
         {
             strcat(buffer, GREEN);
         }
@@ -322,11 +337,12 @@ int mi_dir(const char *camino, char *buffer)
         }
 
         // Para cada entrada concatenamos su nombre al buffer e incorporamos la información del inodo
-        sprintf(tipo, "%c", inodo.tipo);
-        strcat(buffer, tipo);
+        char tipo_str[2];
+        sprintf(tipo_str, "%c", inodo_entrada.tipo);
+        strcat(buffer, tipo_str);
         strcat(buffer, "\t\t");
 
-        if ((inodo.permisos & 4) == 4)
+        if ((inodo_entrada.permisos & 4) == 4)
         {
             strcat(buffer, "r");
         }
@@ -335,7 +351,7 @@ int mi_dir(const char *camino, char *buffer)
             strcat(buffer, "-");
         }
 
-        if ((inodo.permisos & 2) == 2)
+        if ((inodo_entrada.permisos & 2) == 2)
         {
             strcat(buffer, "w");
         }
@@ -344,7 +360,7 @@ int mi_dir(const char *camino, char *buffer)
             strcat(buffer, "-");
         }
 
-        if ((inodo.permisos & 1) == 1)
+        if ((inodo_entrada.permisos & 1) == 1)
         {
             strcat(buffer, "x");
         }
@@ -357,10 +373,10 @@ int mi_dir(const char *camino, char *buffer)
 
         struct tm *ts;
         char mtime[80];
-        ts = localtime(&inodo.mtime);
+        ts = localtime(&inodo_entrada.mtime);
         strftime(mtime, sizeof(mtime), "%a %Y-%m-%d %H:%M:%S", ts);
         strcat(buffer, mtime);
-        sprintf(tamBytes, "\t\t%d", inodo.tamEnBytesLog);
+        sprintf(tamBytes, "\t\t%d", inodo_entrada.tamEnBytesLog);
         strcat(buffer, tamBytes);
         strcat(buffer, "\t\t");
         strcat(buffer, entrada.nombre);
@@ -369,4 +385,49 @@ int mi_dir(const char *camino, char *buffer)
     }
 
     return nentradas;
+}
+
+/**  Cambia los permisos de un fichero o directorio dado su camino
+ * @param camino El camino del fichero o directorio al que se le quieren cambiar los permisos
+ * @param permisos Los nuevos permisos a asignar (bit 4 para lectura, bit 2 para escritura, bit 1 para ejecución)
+ * @return EXITO si se han cambiado los permisos correctamente, o un código de error negativo si no se han podido cambiar
+ */
+
+int mi_chmod(const char *camino, unsigned char permisos)
+{
+    unsigned int p_inodo_dir = 0;
+    unsigned int p_inodo = 0;
+    unsigned int p_entrada = 0;
+
+    // Buscar ruta
+    int error = buscar_entrada(camino, &p_inodo_dir, &p_inodo, &p_entrada, 0, 0);
+
+    if (error < 0) {
+        return error;
+    }
+
+    // Cambiar permisos del inodo encontrado
+    return mi_chmod_f(p_inodo, permisos);
+}
+
+/** Obtiene los datos del inodo asociado a una ruta
+ * @param camino El camino del fichero o directorio del que se quieren obtener los datos
+ * @param p_stat Puntero a la estructura donde se almacenarán los datos
+ * @return EXITO si se han obtenido los datos correctamente, o un código de error negativo si no se han podido obtener
+ */
+int mi_stat(const char *camino, struct STAT *p_stat)
+{
+    unsigned int p_inodo_dir = 0;
+    unsigned int p_inodo = 0;
+    unsigned int p_entrada = 0;
+
+    // Buscar la ruta
+    int error = buscar_entrada(camino, &p_inodo_dir, &p_inodo, &p_entrada,0, 0);
+
+    if (error < 0) {
+        return error;
+    }
+
+    // Obtener metadata del inodo
+    return mi_stat_f(p_inodo, p_stat);
 }
