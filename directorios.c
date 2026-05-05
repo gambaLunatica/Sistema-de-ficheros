@@ -431,3 +431,277 @@ int mi_stat(const char *camino, struct STAT *p_stat)
     // Obtener metadata del inodo
     return mi_stat_f(p_inodo, p_stat);
 }
+
+//###############NIVEL 9 ################################
+
+//Función para escribir contenido en un fichero, se busca la entrada dela camino con buscar entrada
+#if (USARCACHE == 2 || USARCACHE == 3)
+    static struct UltimaEntrada UltimasEntradas[CACHE_SIZE];
+#elif (USARCACHE == 1)
+    static struct UltimaEntrada UltimaEntradaEscritura;
+#endif
+
+int mi_write(const char *camino, const void *buf, unsigned int offset, unsigned int nbytes) {
+    unsigned int p_inodo_dir = 0, p_inodo = 0, p_entrada = 0;
+    int encontrado = -1;
+
+    // --- Se busca la entrada del camino ---
+#if (USARCACHE > 0)
+    #if (USARCACHE == 1)
+        if (strcmp(UltimaEntradaEscritura.camino, camino) == 0) {
+            p_inodo = UltimaEntradaEscritura.p_inodo;
+            encontrado = 0;
+        }
+    #elif (USARCACHE == 2 || USARCACHE == 3)
+        for (int i = 0; i < CACHE_SIZE; i++) {
+            if (strcmp(UltimasEntradas[i].camino, camino) == 0) {
+                p_inodo = UltimasEntradas[i].p_inodo;
+                encontrado = i;
+                #if (USARCACHE == 3) // Actualizar sello de tiempo para LRU
+                    gettimeofday(&UltimasEntradas[i].ultima_consulta, NULL);
+                #endif
+                break;
+            }
+        }
+    #endif
+#endif
+
+    // --- Si no está se busca ---
+    if (encontrado == -1) {
+        int error = buscar_entrada(camino, &p_inodo_dir, &p_inodo, &p_entrada, 0, 0);
+        if (error < 0) {
+            mostrar_error_buscar_entrada(error);
+            return error;
+        }
+
+        // --- Actualiza el cache ---
+#if (USARCACHE == 1)
+        strcpy(UltimaEntradaEscritura.camino, camino);
+        UltimaEntradaEscritura.p_inodo = p_inodo;
+#elif (USARCACHE == 3)
+        // Buscar el hueco libre o la entrada más antigua (LRU)
+        int indice_lru = 0;
+        struct timeval min_time;
+        gettimeofday(&min_time, NULL); // Tiempo actual
+
+        for (int i = 0; i < CACHE_SIZE; i++) {
+            // Si hay un hueco vacío (camino vacío)
+            if (UltimasEntradas[i].camino[0] == '\0') {
+                indice_lru = i;
+                break;
+            }
+            // Si no, buscamos el que tenga el tiempo menor
+            if (UltimasEntradas[i].ultima_consulta.tv_sec < min_time.tv_sec ||
+               (UltimasEntradas[i].ultima_consulta.tv_sec == min_time.tv_sec && 
+                UltimasEntradas[i].ultima_consulta.tv_usec < min_time.tv_usec)) {
+                min_time = UltimasEntradas[i].ultima_consulta;
+                indice_lru = i;
+            }
+        }
+        // Reemplazar la entrada más antigua
+        strcpy(UltimasEntradas[indice_lru].camino, camino);
+        UltimasEntradas[indice_lru].p_inodo = p_inodo;
+        gettimeofday(&UltimasEntradas[indice_lru].ultima_consulta, NULL);
+#endif
+    }
+
+    // --- ESCRITURA FINAL ---
+    return mi_write_f(p_inodo, buf, offset, nbytes);
+}
+int mi_read(const char *camino, void *buf, unsigned int offset, unsigned int nbytes) {
+    unsigned int p_inodo_dir = 0, p_inodo = 0, p_entrada = 0;
+    int indice_cache = -1;
+
+    // --- 1. GESTIÓN DE CACHÉ DE LECTURA ---
+#if (USARCACHE > 0)
+    for (int i = 0; i < CACHE_SIZE; i++) {
+        if (strcmp(UltimasEntradas[i].camino, camino) == 0) {
+            p_inodo = UltimasEntradas[i].p_inodo;
+            indice_cache = i;
+            #if (USARCACHE == 3) // LRU: Actualizar marca de tiempo
+                gettimeofday(&UltimasEntradas[i].ultima_consulta, NULL);
+            #endif
+            break;
+        }
+    }
+#endif
+
+    // --- 2. SI NO ESTÁ EN CACHÉ, BUSCAR ENTRADA ---
+    if (indice_cache == -1) {
+        int error = buscar_entrada(camino, &p_inodo_dir, &p_inodo, &p_entrada, 0, 0);
+        if (error < 0) {
+            return error; // El error ya indica si no existe o no hay permisos
+        }
+
+        // Actualizar la caché con la nueva entrada (Política LRU o FIFO)
+        #if (USARCACHE == 3)
+            int pos_reemplazo = 0;
+            struct timeval min_time;
+            gettimeofday(&min_time, NULL);
+
+            for (int i = 0; i < CACHE_SIZE; i++) {
+                if (UltimasEntradas[i].camino[0] == '\0') { // Hueco libre
+                    pos_reemplazo = i;
+                    break;
+                }
+                if (UltimasEntradas[i].ultima_consulta.tv_sec < min_time.tv_sec) {
+                    min_time = UltimasEntradas[i].ultima_consulta;
+                    pos_reemplazo = i;
+                }
+            }
+            strcpy(UltimasEntradas[pos_reemplazo].camino, camino);
+            UltimasEntradas[pos_reemplazo].p_inodo = p_inodo;
+            gettimeofday(&UltimasEntradas[pos_reemplazo].ultima_consulta, NULL);
+        #endif
+    }
+
+    // --- 3. LLAMADA A LA CAPA DE FICHEROS ---
+    // mi_read_f se encarga de leer los bloques lógicos del inodo
+    return mi_read_f(p_inodo, buf, offset, nbytes);
+}
+
+//##################### NIVEL 10 ########################
+/** Crea un enlace duro desde camino2 a camino1, es decir, camino2 apuntará al mismo inodo que camino1
+ * @param camino1 El camino del fichero original al que se quiere crear el enlace
+ * @param camino2 El camino del nuevo enlace que se quiere crear
+ * @return EXITO si se ha creado el enlace correctamente, o un código de error negativo si no se ha podido crear
+ */
+int mi_link(const char *camino1, const char *camino2) {
+
+    // Variables necesarias para buscar entradas
+    unsigned int p_inodo_dir1, p_inodo1, p_entrada1;
+    unsigned int p_inodo_dir2, p_inodo2, p_entrada2;
+
+    struct inodo inodo1;
+    struct entrada entrada;
+
+    // Buscamos camino1 
+    int error = buscar_entrada(camino1, &p_inodo_dir1, &p_inodo1, &p_entrada1, 0, 0);
+    if (error < 0) {
+        mostrar_error_buscar_entrada(error);
+        return FALLO;
+    }
+
+    //Leemos inodo1
+    if (leer_inodo(p_inodo1, &inodo1) == FALLO) {
+        return FALLO;
+    }
+
+    // Comprobamos que es fichero
+    if (inodo1.tipo != 'f') {
+        fprintf(stderr, "Error: no se permiten enlaces a directorios\n");
+        return FALLO;
+    }
+
+    // Creamos el camino2 (no debe existir)
+    error = buscar_entrada(camino2, &p_inodo_dir2, &p_inodo2, &p_entrada2, 1, 6); // reservar = 1 para crear si no existe, permisos rw- para el nuevo enlace
+    if (error < 0) {
+        mostrar_error_buscar_entrada(error);
+        return FALLO;
+    }
+
+    //Leemos la entrada  creada
+    int offset = p_entrada2 * sizeof(struct entrada);
+    if (mi_read_f(p_inodo_dir2, &entrada, offset, sizeof(struct entrada)) == FALLO) {
+        return FALLO;
+    }
+
+    // Asociamos al mismo inodo
+    entrada.ninodo = p_inodo1;
+
+    // Escribimos la entrada modificada
+    if (mi_write_f(p_inodo_dir2, &entrada, offset, sizeof(struct entrada)) == FALLO) {
+        return FALLO;
+    }
+
+    //Liberamos el inodo que se había creado automáticamente
+    if (liberar_inodo(p_inodo2) == FALLO) {
+        return FALLO;
+    }
+
+    //Incrementamos número de enlaces del inodo original
+    inodo1.nlinks++;
+    inodo1.ctime = time(NULL);
+
+    //Guardar cambios en el inodo
+    if (escribir_inodo(p_inodo1, &inodo1) == FALLO) {
+        return FALLO;
+    }
+
+    return EXITO;
+}
+
+/** Elimina un enlace a un fichero o directorio dado su camino, y si es el último enlace, libera el inodo asociado
+ * @param camino El camino del enlace que se quiere eliminar
+ * @return EXITO si se ha eliminado el enlace correctamente, o un código de error negativo si no se ha podido eliminar
+ */
+int mi_unlink(const char *camino) {
+
+    unsigned int p_inodo_dir, p_inodo, p_entrada;
+    struct inodo inodo;
+    struct entrada ultimaEntrada;
+    int error = buscar_entrada(camino, &p_inodo_dir, &p_inodo, &p_entrada, 0, 0);
+    //Buscamos la entrada
+    if (error < 0) {
+        mostrar_error_buscar_entrada(error);
+        return FALLO;
+    }
+
+    //Leemos el inodo
+    if (leer_inodo(p_inodo, &inodo) == FALLO) {
+        return FALLO;
+    }
+
+    //Si es directorio tenemso que comprobar que esté vacío
+    if (inodo.tipo == 'd' && inodo.tamEnBytesLog > 0) {
+        fprintf(stderr, RED "El directorio %s no está vacío, no se puede borrar" RESET, camino);
+        return FALLO;
+    }
+
+    // Leemos el inodo del directorio padre
+    struct inodo inodo_dir;
+    if (leer_inodo(p_inodo_dir, &inodo_dir) == FALLO) {
+        return FALLO;
+    }
+
+    //Obtenemos el número total de entradas
+    int totalEntradas = inodo_dir.tamEnBytesLog / sizeof(struct entrada);
+
+    // Si no es la última, movemos la última
+    if (p_entrada != totalEntradas - 1) {
+
+        int offsetUltima = (totalEntradas - 1) * sizeof(struct entrada);
+
+        // Leemos la última entrada a borrar en memora
+        if (mi_read_f(p_inodo_dir, &ultimaEntrada, offsetUltima, sizeof(struct entrada)) == FALLO) {
+            return FALLO;
+        }
+
+        //La escribimos en la posición de la que borramos
+        int offset = p_entrada * sizeof(struct entrada);
+        if (mi_write_f(p_inodo_dir, &ultimaEntrada, offset, sizeof(struct entrada)) == FALLO) {
+            return FALLO;
+        }
+    }
+
+    //Reducimos eltamaño del directorio
+    if (mi_truncar_f(p_inodo_dir, (totalEntradas - 1) * sizeof(struct entrada)) == FALLO) {
+        return FALLO;
+    }
+    //Reducimos los enlaces del inodo
+    inodo.nlinks--;
+
+    //Si no quedan enlaces entonces liberamos el  inodo
+    if (inodo.nlinks == 0) {
+        if (liberar_inodo(p_inodo) == FALLO) {
+            return FALLO;
+        }
+    } else {
+        inodo.ctime = time(NULL);
+        if (escribir_inodo(p_inodo, &inodo) == FALLO) {
+            return FALLO;
+        }
+    }
+
+    return EXITO;
+}
