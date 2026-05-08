@@ -137,7 +137,7 @@ int buscar_entrada(const char *camino_parcial, unsigned int *p_inodo_dir, unsign
     if (!encontrada)
     {
 
-        // Si solo queríamos consultar -> error
+        // Si solo queríamos consultar
         if (reservar == 0)
         {
             return ERROR_NO_EXISTE_ENTRADA_CONSULTA;
@@ -154,18 +154,14 @@ int buscar_entrada(const char *camino_parcial, unsigned int *p_inodo_dir, unsign
         {
             return ERROR_PERMISO_ESCRITURA;
         }
-
+        
         // Creamos nueva entrada
         strcpy(entrada.nombre, inicial);
 
         // Reservamos inodo según tipo
         if (tipo == 'd')
         {
-            // si no estamos en el último nivel → error
-            if (strcmp(final, "/") != 0)
-            {
-                return ERROR_NO_EXISTE_DIRECTORIO_INTERMEDIO;
-            }
+            
             entrada.ninodo = reservar_inodo('d', permisos); // reservamos inodo tipo directorio
         }
         else
